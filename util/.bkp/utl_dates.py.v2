@@ -1,0 +1,72 @@
+# -*- coding: utf-8 -*-
+"""
+Centro Logístico de Simulação Meteorológica
+Copyright (c) 1995-2026, Instituto de Controle do Espaço Aéreo
+
+utl_dates
+utilitários de conversão de timestamps do pipeline
+
+o pipeline representa instantes como inteiros no formato YYYYMMDDhhmm
+(ex: 202506151200 → 15/jun/2025 12:00 UTC).
+este módulo centraliza as conversões para evitar duplicação entre
+build_sequences.py e interpolate.py.
+
+2026.jun  mlabru  initial version (Linux/Python)
+"""
+# < imports >──────────────────────────────────────────────────────────────────────────
+
+# Python library
+from __future__ import annotations
+
+import datetime
+
+# < constantes >───────────────────────────────────────────────────────────────────────
+
+# formato canônico do timestamp inteiro usado no pipeline
+CS_TIMESTAMP_FMT = "%Y%m%d%H%M"
+
+# ─────────────────────────────────────────────────────────────────────────────────────
+
+def timestamp_to_datetime(fi_timestamp: int) -> datetime.datetime:
+    """
+    converte timestamp inteiro (YYYYMMDDhhmm) para datetime naive (UTC).
+
+    exemplo: 202506151200 → datetime(2025, 6, 15, 12, 0)
+
+    :param fi_timestamp: inteiro no formato YYYYMMDDhhmm
+
+    :returns: datetime.datetime (naive, UTC implícito)
+    """
+    # ok
+    return datetime.datetime.strptime(str(fi_timestamp), CS_TIMESTAMP_FMT)
+
+# ─────────────────────────────────────────────────────────────────────────────────────
+
+def datetime_to_timestamp(fdt: datetime.datetime) -> int:
+    """
+    converte datetime para timestamp inteiro (YYYYMMDDhhmm).
+
+    exemplo: datetime(2025, 6, 15, 12, 0) → 202506151200
+
+    :param fdt: datetime.datetime (naive, UTC implícito)
+
+    :returns: inteiro no formato YYYYMMDDhhmm
+    """
+    # ok
+    return int(fdt.strftime(CS_TIMESTAMP_FMT))
+
+# ─────────────────────────────────────────────────────────────────────────────────────
+# this is the bootstrap process
+
+if "__main__" == __name__:
+
+    # smoke test
+    ldt = timestamp_to_datetime(202506151200)
+    assert ldt == datetime.datetime(2025, 6, 15, 12, 0), f"falha: {ldt}"
+
+    li_ts = datetime_to_timestamp(ldt)
+    assert li_ts == 202506151200, f"falha: {li_ts}"
+
+    print("utl_dates: OK")
+
+# < the end >──────────────────────────────────────────────────────────────────────────
