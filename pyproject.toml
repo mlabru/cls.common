@@ -1,0 +1,22 @@
+# Centro Logístico de Simulação Meteorológica
+# Copyright (c) 1995-2026, Instituto de Controle do Espaço Aéreo
+#
+# pacote cls_common (python/cls_common).  Os projetos cls o veem pelo
+# PYTHONPATH (CLS_PYLIB no cls.env, cls_setup_pythonpath em cls_common.sh);
+# este arquivo só permite, se um dia for preciso, "pip install" do mesmo
+# código.  Dependências opcionais por subpacote: radar.rd_gamic_reader
+# (h5py, numpy), radar.rd_pyart_adapter (arm_pyart).
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cls-common"
+version = "1.0.0"
+description = "Código comum aos projetos cls (banco, leitura de .mvol, utilitários)"
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+where = ["python"]
+include = ["cls_common*"]

@@ -6,6 +6,8 @@ Copyright (c) 1995-2026, Instituto de Controle do Espaço Aéreo
 utl_dates
 utilitários de conversão de timestamps do pipeline
 
+2026.nov  mlabru  movido para o repo cls.common (pacote cls_common): imports
+                  cls_common.dbase/radar/util (eram dbase/radar/util por symlink)
 2026.jan  mlabru  extração da data de um mvol (get_date_from_mvol)
 2022.apr  mlabru  initial version (Linux/Python)
 """

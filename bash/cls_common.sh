@@ -12,11 +12,16 @@
 # arquivo), definida no cls.env da instalação (CLS_ENV_FILE, padrão
 # ~/.config/cls/cls.env; modelo em cls.common/etc/cls.env.example).  CLS_LIB
 # é obrigatória: não há mais symlink de reserva na raiz dos repos.
+# Também põe o pacote Python comum (CLS_PYLIB) no PYTHONPATH
+# (cls_setup_pythonpath).
 # Alterar este arquivo afeta todos esses projetos: rode as suítes deles.
 #
 # Só define funções: nada roda no source, e importar duas vezes é inócuo.
 # Sem "set -e": herda as opções de shell de quem importa -- por isso nada
 # aqui pode falhar à toa (ver check_log_size).
+#
+# 2026.nov  mlabru  cls_setup_pythonpath: pacote Python comum (cls_common) por
+#                   CLS_PYLIB, no lugar dos symlinks apps/{dbase,radar,util}
 #
 # 2026.nov  mlabru  - prefixo met -> cls: met_log -> cls_log,
 #                     met_check_test_env -> cls_check_test_env,
@@ -186,5 +191,35 @@ cls_check_test_env() {
     fi
 
 } # cls_check_test_env
+
+# < cls_setup_pythonpath >-------------------------------------------------------------
+#
+# põe o pacote Python comum (cls_common, em CLS_PYLIB = cls.common/python,
+# definida no cls.env) na frente do PYTHONPATH e o exporta.  Os projetos a
+# chamam no <pfx>_cfg.sh; os PYTHONPATH="<proj>/apps..." dos scripts devem
+# acrescentar o atual (${PYTHONPATH:+:${PYTHONPATH}}), não substituí-lo.
+# Idempotente (não repete o caminho)
+#
+# uso: cls_setup_pythonpath || exit 1
+#      (retorna 1 com a mensagem em stderr se CLS_PYLIB não tiver o pacote)
+#
+cls_setup_pythonpath() {
+
+    if [ ! -r "${CLS_PYLIB:-}/cls_common/__init__.py" ]; then
+        # logger
+        echo "[error]: CLS_PYLIB='${CLS_PYLIB:-}' sem o pacote cls_common; defina-a no cls.env" >&2
+        # quit fail
+        return 1
+    fi
+
+    case ":${PYTHONPATH:-}:" in
+        # já está ?
+        *":${CLS_PYLIB}:"*) ;;
+        *) PYTHONPATH="${CLS_PYLIB}${PYTHONPATH:+:${PYTHONPATH}}" ;;
+    esac
+
+    export PYTHONPATH
+
+} # cls_setup_pythonpath
 
 # < the end >--------------------------------------------------------------------------

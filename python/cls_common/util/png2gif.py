@@ -5,6 +5,8 @@ Copyright (c) 1995-2026, Instituto de Controle do Espaço Aéreo
 
 png2gif
 
+2026.nov  mlabru  movido para o repo cls.common (pacote cls_common): imports
+                  cls_common.dbase/radar/util (eram dbase/radar/util por symlink)
 2025.nov  mlabru  initial version (Linux/Python)
 """
 # < imports >--------------------------------------------------------------------------
@@ -16,7 +18,7 @@ import sys
 from PIL import Image
 
 # locals
-import utl_gifs as utl
+import cls_common.util.utl_gifs as utl
 
 # -------------------------------------------------------------------------------------
 def main(fv_enhance: bool = False):

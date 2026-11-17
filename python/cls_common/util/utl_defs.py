@@ -2,6 +2,8 @@
 """
 utl_defs
 
+2026.nov  mlabru  movido para o repo cls.common (pacote cls_common): imports
+                  cls_common.dbase/radar/util (eram dbase/radar/util por symlink)
 2025.mar  mlabru  initial version (Linux/Python)
 """
 # < imports >--------------------------------------------------------------------------

@@ -2,6 +2,8 @@
 """
 opm_logs
 
+2026.nov  mlabru  movido para o repo cls.common (pacote cls_common): imports
+                  cls_common.dbase/radar/util (eram dbase/radar/util por symlink)
 2025.mar  mlabru  initial version (Linux/Python)
 """
 # < imports >--------------------------------------------------------------------------
@@ -12,7 +14,7 @@ import logging
 import os
 
 # local
-import util.utl_defs as df
+import cls_common.util.utl_defs as df
 
 # < logging >--------------------------------------------------------------------------
 
