@@ -13,12 +13,16 @@
 # ~/.config/cls/cls.env; modelo em cls.common/etc/cls.env.example).  CLS_LIB
 # é obrigatória: não há mais symlink de reserva na raiz dos repos.
 # Também põe o pacote Python comum (CLS_PYLIB) no PYTHONPATH
-# (cls_setup_pythonpath).
+# (cls_setup_pythonpath) e grava/confere heartbeats de sucesso
+# (cls_heartbeat, cls_check_heartbeat).
 # Alterar este arquivo afeta todos esses projetos: rode as suítes deles.
 #
 # Só define funções: nada roda no source, e importar duas vezes é inócuo.
 # Sem "set -e": herda as opções de shell de quem importa -- por isso nada
 # aqui pode falhar à toa (ver check_log_size).
+#
+# 2026.nov  mlabru  cls_heartbeat/cls_check_heartbeat: último sucesso de cada
+#                   script, para monitoramento (OK/CRITICAL/UNKNOWN)
 #
 # 2026.nov  mlabru  cls_setup_pythonpath: pacote Python comum (cls_common) por
 #                   CLS_PYLIB, no lugar dos symlinks apps/{dbase,radar,util}
@@ -221,5 +225,65 @@ cls_setup_pythonpath() {
     export PYTHONPATH
 
 } # cls_setup_pythonpath
+
+# < cls_heartbeat >--------------------------------------------------------------------
+#
+# registra o último sucesso de um script ("<epoch> <ISO UTC>", uma linha),
+# de forma atômica (temporário + mv -T: um diretório no caminho é erro, e não
+# destino do mv): um monitor lê a idade desse arquivo
+# (cls_check_heartbeat) e descobre um cron que parou ou que só falha, sem
+# depender de alguém ler os .err.  Chame só no fim de uma execução bem
+# sucedida.  Nunca falha (como check_log_size): um heartbeat que não pôde ser
+# gravado aparece como atrasado, que é o sinal certo
+#
+# uso: cls_heartbeat <arquivo>
+#
+cls_heartbeat() {
+
+    local ls_file="$1"
+    local ls_tmp="${ls_file}.tmp.$$"
+
+    if ! { mkdir -p "$(dirname "${ls_file}")" &&
+           date -u '+%s %Y-%m-%dT%H:%M:%SZ' > "${ls_tmp}" &&
+           mv -fT "${ls_tmp}" "${ls_file}"; } 2> /dev/null; then
+        rm -f "${ls_tmp}" 2> /dev/null
+        echo "[warn]: heartbeat não gravado: ${ls_file}" >&2
+    fi
+
+    return 0
+
+} # cls_heartbeat
+
+# < cls_check_heartbeat >--------------------------------------------------------------
+#
+# confere a idade de um heartbeat (cls_heartbeat).  Escreve uma frase curta
+# em stdout e devolve o código no formato dos plugins do Nagios:
+#   0 (OK)        sucesso há no máximo <max_min> minutos
+#   2 (CRITICAL)  último sucesso há mais de <max_min> minutos
+#   3 (UNKNOWN)   heartbeat ausente ou ilegível (o script nunca terminou bem)
+#
+# uso: cls_check_heartbeat <rótulo> <arquivo> <max_min>
+#
+cls_check_heartbeat() {
+
+    local ls_label="$1" ls_file="$2" li_max_min="$3"
+    local ls_epoch ls_iso li_age_min
+
+    if ! read -r ls_epoch ls_iso 2> /dev/null < "${ls_file}" || [[ ! "${ls_epoch}" =~ ^[0-9]+$ ]]; then
+        echo "${ls_label} sem heartbeat (${ls_file})"
+        return 3
+    fi
+
+    li_age_min=$(( ( $(date -u '+%s') - ls_epoch ) / 60 ))
+
+    if [ "${li_age_min}" -gt "${li_max_min}" ]; then
+        echo "${ls_label} sem sucesso há ${li_age_min} min (máx ${li_max_min}; último ${ls_iso})"
+        return 2
+    fi
+
+    echo "${ls_label} ok há ${li_age_min} min"
+    return 0
+
+} # cls_check_heartbeat
 
 # < the end >--------------------------------------------------------------------------

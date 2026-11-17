@@ -6,7 +6,7 @@ pelo arquivo de ambiente da instalação, o `cls.env`.
 
 | caminho | o quê | como os projetos o veem |
 |---|---|---|
-| `bash/cls_common.sh` | `cls_log`, `check_log_size`, `cls_check_test_env`, `cls_setup_pythonpath` | `CLS_LIB` → `source "${CLS_LIB}/cls_common.sh"` no `<pfx>_cfg.sh` |
+| `bash/cls_common.sh` | `cls_log`, `check_log_size`, `cls_check_test_env`, `cls_setup_pythonpath`, `cls_heartbeat`/`cls_check_heartbeat` (último sucesso de cada cron, para monitoramento) | `CLS_LIB` → `source "${CLS_LIB}/cls_common.sh"` no `<pfx>_cfg.sh` |
 | `python/cls_common/` | pacote Python: `dbase` (catalog.db: esquema versionado em `dbase/schema.py`, contrato da tabela `volumes`), `radar` (leitura dos `.mvol`), `util` | `CLS_PYLIB` → `cls_setup_pythonpath` (PYTHONPATH); `import cls_common.dbase.vol_dbase` |
 | `etc/cls.env.example` | modelo do `cls.env` (`CLS_LIB`, `CLS_PYLIB`, `CLS_ROOT`, `CLS_DBASE_FILE`, `CLS_CAPPI_DIR`, `CLS_ENV`) | copiar para `~/.config/cls/cls.env` (ou apontar `CLS_ENV_FILE`) |
 
