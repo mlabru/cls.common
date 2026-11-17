@@ -8,14 +8,10 @@
 # 21.mvol/tst_env).
 #
 # mora no repo cls.common (cls.common/bash/cls_common.sh).  Cada projeto o
-# localiza, no seu <pfx>_cfg.sh/<pfx>_common.sh, por:
-#   1. CLS_LIB (diretório deste arquivo), definida no cls.env da instalação
-#      (CLS_ENV_FILE, padrão ~/.config/cls/cls.env; modelo em
-#      cls.common/etc/cls.env.example);
-#   2. senão, o cls_common.sh ao lado do script -- symlink no checkout de
-#      desenvolvimento (<nn.projeto>/cls.<projeto>/cls_common.sh ->
-#      ../../cls.common/bash/cls_common.sh) ou cópia (cp -L) num deploy por
-#      cópia.  Transitório: sai quando todo host tiver o cls.env.
+# importa, no seu <pfx>_cfg.sh/<pfx>_common.sh, de CLS_LIB (diretório deste
+# arquivo), definida no cls.env da instalação (CLS_ENV_FILE, padrão
+# ~/.config/cls/cls.env; modelo em cls.common/etc/cls.env.example).  CLS_LIB
+# é obrigatória: não há mais symlink de reserva na raiz dos repos.
 # Alterar este arquivo afeta todos esses projetos: rode as suítes deles.
 #
 # Só define funções: nada roda no source, e importar duas vezes é inócuo.
@@ -28,8 +24,8 @@
 #                     transição a trava ainda aceita MET_ENV/MET_TST_ROOT
 #                     (com aviso): um env.sh antigo com MET_ENV=test não
 #                     pode desligá-la em silêncio
-#                   - localização por CLS_LIB (cls.env), com o symlink ao
-#                     lado do script como reserva
+#                   - localização só por CLS_LIB (cls.env): o symlink
+#                     cls_common.sh saiu da raiz dos repos
 #
 # 2026.nov  mlabru  - check_log_size tolera rotação simultânea: dois
 #                     processos do mesmo projeto (jobs paralelos, cron
