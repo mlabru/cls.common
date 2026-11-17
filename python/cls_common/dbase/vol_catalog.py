@@ -16,6 +16,8 @@ escritor único: vol_sync.sh (volDBWriter.py, source='mvol').  O monrad
 (21.mrad) só lê a tabela, pelo mesmo arquivo via symlink.  Linhas antigas com
 source='monrad' são de quando ele também gravava.
 
+2026.nov  mlabru  DDL e ensure_schema() saíram para cls_common.dbase.schema
+                  (migração 1); ficam o nome da tabela e check_relpath()
 2026.nov  mlabru  movido para o repo cls.common (pacote cls_common): imports
                   cls_common.dbase/radar/util (eram dbase/radar/util por symlink)
 2026.out  mlabru  - docstrings: o 21.mvol é o único escritor (o monrad passou a
@@ -41,32 +43,8 @@ source='monrad' são de quando ele também gravava.
 # programas no mesmo catalog.db)
 CS_TABLE = "vol_raw_observations"
 
-# contrato: qualquer mudança de schema precisa ser replicada também
-# fullpath: relativo a REMOTE_DIR (ver docstring do módulo)
-CS_CREATE_TABLE = f"""
-CREATE TABLE IF NOT EXISTS {CS_TABLE} (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    fullpath   TEXT    NOT NULL UNIQUE,
-    mtime      REAL    NOT NULL,
-    timestamp  INTEGER,
-    source     TEXT    NOT NULL,
-    created_at TEXT
-)
-"""
-
-CS_CREATE_INDEX = f"""
-CREATE INDEX IF NOT EXISTS vol_raw_observations_idx_mtime ON {CS_TABLE}(mtime)
-"""
-
-# separado de CS_CREATE_INDEX: numa base antiga (sem timestamp) o índice só
-# pode ser criado depois da migração de ensure_schema() -- quem ainda só
-# executa CS_CREATE_TABLE/CS_CREATE_INDEX continua funcionando
-CS_CREATE_INDEX_TIMESTAMP = f"""
-CREATE INDEX IF NOT EXISTS vol_raw_observations_idx_timestamp ON {CS_TABLE}(timestamp)
-"""
-
-# índice da coluna com o nome antigo (obs_time), removido na migração
-CS_DROP_INDEX_OBS_TIME = "DROP INDEX IF EXISTS vol_raw_observations_idx_obs_time"
+# a DDL da tabela (e as migrações antigas obs_time -> timestamp) mora em
+# cls_common.dbase.schema, o esquema versionado do catalog.db
 
 # ─────────────────────────────────────────────────────────────────────────────────────
 def check_relpath(fs_path: str) -> None:
@@ -86,42 +64,5 @@ def check_relpath(fs_path: str) -> None:
 
     if fs_path.startswith('/'):
         raise ValueError(f"fullpath absoluto (esperado relativo a REMOTE_DIR): {fs_path}")
-
-# ─────────────────────────────────────────────────────────────────────────────────────
-def ensure_schema(fconn) -> None:
-    """
-    garante tabela e índices, migrando bases antigas: coluna obs_time (nome
-    anterior) é renomeada para timestamp; base sem nenhuma das duas ganha
-    timestamp (nullable: linhas de quem não sabe extrair o tempo do nome
-    ficam NULL)
-
-    numa base migrada por RENAME a coluna mantém a afinidade REAL declarada
-    antes -- os valores continuam comparáveis a volumes.timestamp (a
-    comparação no SQLite é numérica)
-
-    :param fconn: conexão sqlite3 aberta
-    """
-    # tabela e índice originais
-    fconn.execute(CS_CREATE_TABLE)
-    fconn.execute(CS_CREATE_INDEX)
-
-    # colunas existentes
-    lset_cols = {lt_row[1] for lt_row in fconn.execute(f"PRAGMA table_info({CS_TABLE})")}
-
-    # base antiga ? migra
-    if "timestamp" not in lset_cols:
-        if "obs_time" in lset_cols:
-            # nome anterior da mesma coluna
-            fconn.execute(f"ALTER TABLE {CS_TABLE} RENAME COLUMN obs_time TO timestamp")
-
-        else:
-            # base anterior à coluna
-            fconn.execute(f"ALTER TABLE {CS_TABLE} ADD COLUMN timestamp INTEGER")
-
-    # o índice antigo acompanha o RENAME, mas com o nome obsoleto
-    fconn.execute(CS_DROP_INDEX_OBS_TIME)
-
-    # índice do tempo confiável
-    fconn.execute(CS_CREATE_INDEX_TIMESTAMP)
 
 # < the end >──────────────────────────────────────────────────────────────────────────

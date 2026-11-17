@@ -16,12 +16,15 @@ nowcast, registro, has_mvol e a view de pendentes do nowcast)
 # python library
 import sqlite3
 
+# pytest
+import pytest
+
 # model
 import cls_common.dbase.vol_dbase as vd
 
 # < helpers >──────────────────────────────────────────────────────────────────────────
 
-# colunas de volumes em 27.nowcast/04.dvl/apps/work/nwc_database.py (contrato)
+# colunas de volumes (contrato com o 27.nowcast; DDL em cls_common.dbase.schema)
 MT_VOLUMES_COLUMNS = ("id", "radar", "alcance", "timestamp", "fullpath", "filesize", "sha1",
                       "has_mvol", "has_cappi", "cappi_path", "interpolated", "predicted",
                       "status", "rain_fraction", "valid_fraction", "created_at", "updated_at")
@@ -40,6 +43,19 @@ def test_schema_volumes_igual_ao_do_nowcast(tmp_path):
     lt_cols = tuple(lrow[1] for lrow in lconn.execute("PRAGMA table_info(volumes)"))
 
     assert MT_VOLUMES_COLUMNS == lt_cols
+
+# -------------------------------------------------------------------------------------
+def test_cvoldb_recusa_banco_nao_migrado(tmp_path):
+    # abrir não cria mais tabela: banco fora da versão de esquema é erro de
+    # banco (volScan/volPurge o tratam como tal: log e rc 1)
+    ls_db = str(tmp_path / "nao_migrado.db")
+
+    with pytest.raises(sqlite3.DatabaseError, match="versão 0"):
+        vd.CVolDB(ls_db)
+
+    lconn = sqlite3.connect(ls_db)
+    assert [] == lconn.execute("SELECT name FROM sqlite_master").fetchall()
+    lconn.close()
 
 # -------------------------------------------------------------------------------------
 def test_insert_volume_nasce_new_com_mvol(tmp_path):

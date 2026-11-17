@@ -5,17 +5,18 @@ Copyright (c) 1995-2026, Instituto de Controle do Espaço Aéreo
 
 vol_dbase
 acesso à tabela volumes do catalog.db compartilhado: registro dos .mvol
-(volScan.py) e retenção (volPurge.py).  Cria também processing_log e
-radar_sites.
+(volScan.py) e retenção (volPurge.py).
 
-o schema (DDL) e os códigos de status são um contrato -- qualquer mudança
-precisa ser replicada lá.  Aqui volumes.status só nasce NEW (colunas de
+a DDL mora em cls_common.dbase.schema (esquema versionado, único dono); os
+códigos de status são um contrato com o 27.nowcast.  Aqui volumes.status só nasce NEW (colunas de
 conversão has_cappi, cappi_path, rain/valid_fraction e os status 1-5 ficam
 no DDL por contrato, preenchidas só nas linhas de antes da mudança).
 
 todo instante é UTC: timestamp = epoch do horário (UTC) no nome do .mvol;
 created_at/updated_at = datetime.now(timezone.utc).isoformat().
 
+2026.nov  mlabru  DDL saiu para cls_common.dbase.schema; CVolDB só confere a
+                  versão do esquema (não cria mais tabelas ao abrir)
 2026.nov  mlabru  movido para o repo cls.common (pacote cls_common): imports
                   cls_common.dbase/radar/util (eram dbase/radar/util por symlink)
 2026.out  mlabru  refatoração para legibilidade (API e DDL inalterados):
@@ -43,9 +44,12 @@ import logging
 import sqlite3
 import typing
 
+# locals
+import cls_common.dbase.schema as sc
+
 # < constants >────────────────────────────────────────────────────────────────────────
 
-# status do pipeline (idênticos a nc_database.CI_STATUS_*)
+# status do pipeline (idênticos a nwc_database.CI_STATUS_*, 27.nowcast)
 CI_STATUS_NEW          = 0
 CI_STATUS_PROCESSING   = 1
 CI_STATUS_DONE         = 2
@@ -58,53 +62,8 @@ CI_STATUS_PREDICTED    = 5
 # nunca criada
 CS_VIEW_PENDING = "cappi_pending"
 
-# SQL — criação das tabelas e índices
-CS_CREATE_VOLUMES = """
-CREATE TABLE IF NOT EXISTS volumes (
-    id             INTEGER PRIMARY KEY AUTOINCREMENT,
-    radar          TEXT    NOT NULL,
-    alcance        INTEGER NOT NULL,
-    timestamp      INTEGER NOT NULL,
-    fullpath       TEXT    NOT NULL,
-    filesize       INTEGER,
-    sha1           TEXT,
-    has_mvol       INTEGER DEFAULT 1,
-    has_cappi      INTEGER DEFAULT 0,
-    cappi_path     TEXT,
-    interpolated   INTEGER DEFAULT 0,
-    predicted      INTEGER DEFAULT 0,
-    status         INTEGER DEFAULT 0,
-    rain_fraction  REAL,
-    valid_fraction REAL,
-    created_at     TEXT,
-    updated_at     TEXT,
-    UNIQUE(radar, alcance, timestamp))"""
-
-CS_CREATE_LOG = """
-CREATE TABLE IF NOT EXISTS processing_log (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    radar      TEXT NOT NULL,
-    alcance    INTEGER NOT NULL,
-    timestamp  INTEGER NOT NULL,
-    step       TEXT,
-    status     INTEGER,
-    message    TEXT,
-    created_at TEXT)"""
-
-CS_CREATE_RADAR_SITES = """
-CREATE TABLE IF NOT EXISTS radar_sites (
-    radar      TEXT PRIMARY KEY,
-    latitude   REAL NOT NULL,
-    longitude  REAL NOT NULL,
-    altitude   REAL NOT NULL,
-    updated_at TEXT)"""
-
-CS_CREATE_INDEX_1 = "CREATE INDEX IF NOT EXISTS idx_timestamp        ON volumes(timestamp)"
-CS_CREATE_INDEX_2 = "CREATE INDEX IF NOT EXISTS idx_status           ON volumes(status)"
-CS_CREATE_INDEX_3 = "CREATE INDEX IF NOT EXISTS idx_radar_timestamp  ON volumes(radar, alcance, timestamp)"
-
-MT_CREATE_ALL = (CS_CREATE_VOLUMES, CS_CREATE_LOG, CS_CREATE_RADAR_SITES,
-                 CS_CREATE_INDEX_1, CS_CREATE_INDEX_2, CS_CREATE_INDEX_3)
+# a DDL de volumes, processing_log e radar_sites mora em cls_common.dbase.schema
+# (esquema versionado do catalog.db): aqui só se confere a versão
 
 # < logging >──────────────────────────────────────────────────────────────────────────
 
@@ -129,9 +88,13 @@ class CVolDB:
     # ---------------------------------------------------------------------------------
     def __init__(self, fs_dbase_path: str):
         """
-        abre a conexão (WAL, timeout de lock) e garante o schema
+        abre a conexão (WAL, timeout de lock) e confere a versão do esquema
+        (cls_common.dbase.schema) -- não cria nada: o banco é migrado no deploy
 
         :param fs_dbase_path: caminho do catalog.db
+
+        :raises schema.SchemaVersionError: banco em outra versão de esquema
+                (subclasse de sqlite3.DatabaseError)
         """
         # logger
         M_LOG.debug(">> __init__")
@@ -145,11 +108,13 @@ class CVolDB:
         # modo WAL para melhor concorrência de leitura
         self.conn.execute("PRAGMA journal_mode = WAL")
 
-        # garante schema (idempotente)
-        for ls_sql in MT_CREATE_ALL:
-            self.conn.execute(ls_sql)
+        # esquema na versão do código ?  (senão fecha e propaga)
+        try:
+            sc.check_schema(self.conn, fs_dbase_path)
 
-        self.conn.commit()
+        except sqlite3.Error:
+            self.conn.close()
+            raise
 
         # create cursor
         self.cursor = self.conn.cursor()
