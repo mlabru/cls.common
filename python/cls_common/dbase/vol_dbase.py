@@ -15,6 +15,8 @@ no DDL por contrato, preenchidas só nas linhas de antes da mudança).
 todo instante é UTC: timestamp = epoch do horário (UTC) no nome do .mvol;
 created_at/updated_at = datetime.now(timezone.utc).isoformat().
 
+2026.nov  mlabru  present_files(): índice fullpath -> filesize para o caminho
+                  rápido do volScan
 2026.nov  mlabru  disk_candidates(): ordem de remoção da guarda de disco do
                   volPurge (não pendentes antes, mais antigos antes, sem PROCESSING)
 2026.nov  mlabru  DDL saiu para cls_common.dbase.schema; CVolDB só confere a
@@ -186,6 +188,19 @@ class CVolDB:
                                VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?)""",
                             (fs_radar, fi_alcance, fi_timestamp, fs_fullpath, fi_filesize,
                              fs_sha1, CI_STATUS_NEW, ls_now, ls_now))
+
+    # ---------------------------------------------------------------------------------
+    def present_files(self) -> dict[str, int]:
+        """
+        índice dos .mvol registrados e presentes (has_mvol=1): fullpath ->
+        filesize, numa única consulta.  O volScan pula sem decodificar o nome
+        (e sem uma consulta por arquivo) o arquivo cujo caminho e tamanho
+        batem -- a linha com esse fullpath veio do nome desse mesmo arquivo
+        """
+        self.cursor.execute("SELECT fullpath, filesize FROM volumes WHERE has_mvol = 1")
+
+        # ok
+        return dict(self.cursor.fetchall())
 
     # ---------------------------------------------------------------------------------
     def has_pending_view(self) -> bool:

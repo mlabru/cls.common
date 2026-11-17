@@ -122,4 +122,16 @@ def test_disk_candidates_ordem_e_exclusoes(tmp_path):
 
     assert [(200, False), (300, False), (600, False), (100, True)] == llst
 
+# -------------------------------------------------------------------------------------
+def test_present_files_so_com_mvol(tmp_path):
+    ls_db = str(tmp_path / "catalog.db")
+    _insert(ls_db, 100)
+    _insert(ls_db, 200)
+
+    with vd.transaction_write(ls_db) as ldb:
+        ldb.mark_mvol_removed("CGU", 250, 200)
+
+    with vd.transaction(ls_db) as ldb:
+        assert {"/x/CGU-100.mvol": 10} == ldb.present_files()
+
 # < the end >──────────────────────────────────────────────────────────────────────────
