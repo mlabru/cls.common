@@ -28,6 +28,8 @@ uso:
     python3 -m cls_common.dbase.schema <catalog.db> --check     # só confere
     python3 -m cls_common.dbase.schema <catalog.db> --dry-run   # lista pendentes
 
+2026.nov  mlabru  migração 2: received_at, resends e last_mtime em
+                  vol_raw_observations (histórico de recepção)
 2026.nov  mlabru  initial version: migração 1 (baseline) reúne a DDL que
                   estava em vol_dbase.CVolDB, vol_catalog.ensure_schema e
                   nwc_database.create_schema (27.nowcast), inclusive as
@@ -205,9 +207,43 @@ def _m001_baseline(fconn: sqlite3.Connection) -> None:
     for ls_sql in MT_CREATE_INDEXES:
         fconn.execute(ls_sql)
 
+# ─────────────────────────────────────────────────────────────────────────────────────
+def _m002_reception(fconn: sqlite3.Connection) -> None:
+    """
+    migração 2: histórico de recepção em vol_raw_observations (até aqui a
+    tabela só dizia o que foi LISTADO no servidor, e um reenvio do mesmo nome
+    sumia no INSERT OR IGNORE):
+
+    - received_at TEXT: ISO UTC em que o arquivo apareceu no VOL_SYNC_DIR
+      (marcado pelo vol_sync.sh, volDBWriter --received); NULL = listado e
+      ainda não recebido;
+    - resends INTEGER: quantas vezes o mesmo fullpath reapareceu no servidor
+      DEPOIS de recebido (cada reaparição zera received_at até chegar de novo);
+    - last_mtime REAL: mtime da última aparição (mtime continua sendo o da
+      primeira: é a "chegada" que o 21.mrad lê).
+
+    linhas antigas: received_at = created_at e last_mtime = mtime.  É uma
+    aproximação, documentada: até aqui o vol_sync.sh transferia toda a
+    listagem na mesma execução em que a gravava, então created_at é a melhor
+    estimativa (um rsync que falhou só atrasaria a chegada real)
+    """
+    lset_cols = _columns(fconn, "vol_raw_observations")
+
+    if "received_at" not in lset_cols:
+        fconn.execute("ALTER TABLE vol_raw_observations ADD COLUMN received_at TEXT")
+        fconn.execute("UPDATE vol_raw_observations SET received_at = created_at")
+
+    if "resends" not in lset_cols:
+        fconn.execute("ALTER TABLE vol_raw_observations ADD COLUMN resends INTEGER NOT NULL DEFAULT 0")
+
+    if "last_mtime" not in lset_cols:
+        fconn.execute("ALTER TABLE vol_raw_observations ADD COLUMN last_mtime REAL")
+        fconn.execute("UPDATE vol_raw_observations SET last_mtime = mtime")
+
 # migrações, em ordem: a posição (1, 2, ...) é a versão que cada uma produz
 MT_MIGRATIONS = (
     _m001_baseline,
+    _m002_reception,
 )
 
 # versão do esquema que este código espera

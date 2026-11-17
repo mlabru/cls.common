@@ -9,6 +9,7 @@ banco novo, idempotência, bancos antigos (obs_time, sequences sem preset),
 check_schema, transação (rollback) e linha de comando.  Usa nomes de
 arquivo próprios: <tmp>/catalog.db já vem migrado (fixture catalog_migrado)
 
+2026.nov  mlabru  migração 2 (recepção)
 2026.nov  mlabru  initial version: os testes de migração antiga vieram de
                   21.mvol/test_volDBWriter.py e 27.nowcast/test_database.py
 """
@@ -224,5 +225,35 @@ def test_cli_migra(tmp_path):
 
     assert 0 == sc.main([ls_db])
     assert sc.CI_SCHEMA_VERSION == _version(ls_db)
+
+# < migração 2 (recepção) >────────────────────────────────────────────────────────────
+
+def test_m002_preenche_as_linhas_antigas(tmp_path, monkeypatch):
+    # banco na versão 1 com uma observação, depois a 2
+    ls_db = str(tmp_path / "v1.db")
+    monkeypatch.setattr(sc, "MT_MIGRATIONS", sc.MT_MIGRATIONS[:1])
+    monkeypatch.setattr(sc, "CI_SCHEMA_VERSION", 1)
+    sc.migrate(ls_db)
+
+    lconn = sqlite3.connect(ls_db)
+    lconn.execute("INSERT INTO vol_raw_observations (fullpath, mtime, source, created_at) "
+                  "VALUES ('a/b.mvol', 5.0, 'mvol', '2026-10-01T00:00:00+00:00')")
+    lconn.commit()
+    lconn.close()
+    monkeypatch.undo()
+
+    assert (1, sc.CI_SCHEMA_VERSION) == sc.migrate(ls_db)
+
+    lconn = sqlite3.connect(ls_db)
+    assert [("2026-10-01T00:00:00+00:00", 0, 5.0)] == lconn.execute(
+        "SELECT received_at, resends, last_mtime FROM vol_raw_observations").fetchall()
+    lconn.close()
+
+def test_banco_novo_tem_as_colunas_de_recepcao(tmp_path):
+    lconn = sqlite3.connect(tmp_path / "catalog.db")
+    lset = {lt[1] for lt in lconn.execute("PRAGMA table_info(vol_raw_observations)")}
+    lconn.close()
+
+    assert {"received_at", "resends", "last_mtime"} <= lset
 
 # < the end >──────────────────────────────────────────────────────────────────────────

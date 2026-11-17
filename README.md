@@ -30,6 +30,9 @@ PYTHONPATH=$CLS_PYLIB python3 -m cls_common.dbase.schema catalog.db
 PYTHONPATH=$CLS_PYLIB python3 -m cls_common.dbase.schema catalog.db --check
 ```
 
+Migrações: 1 = baseline (o esquema de 2026.nov), 2 = histórico de recepção em
+`vol_raw_observations` (`received_at`, `resends`, `last_mtime`).
+
 A migração roda numa transação (`BEGIN IMMEDIATE`): ou chega à versão do
 código, ou o banco fica como estava.  Mudança de esquema = nova função
 `_mNNN_<nome>` no fim de `MT_MIGRATIONS`; nunca editar uma migração já
