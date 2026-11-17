@@ -5,7 +5,7 @@
 # funções bash comuns aos projetos cls (19.dash, 21.mrad, 21.mvol, 23.blitz,
 # 23.goes, 25.oflow, 25.u-net, 27.nowcast): rotação simples de log, logger
 # com timestamp UTC e a trava do ambiente de teste (CLS_ENV=test,
-# 21.mvol/tst_env).
+# cls.tst).
 #
 # mora no repo cls.common (cls.common/bash/cls_common.sh).  Cada projeto o
 # importa, no seu <pfx>_cfg.sh/<pfx>_common.sh, de CLS_LIB (diretório deste
