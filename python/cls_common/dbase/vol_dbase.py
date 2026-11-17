@@ -15,6 +15,8 @@ no DDL por contrato, preenchidas só nas linhas de antes da mudança).
 todo instante é UTC: timestamp = epoch do horário (UTC) no nome do .mvol;
 created_at/updated_at = datetime.now(timezone.utc).isoformat().
 
+2026.nov  mlabru  disk_candidates(): ordem de remoção da guarda de disco do
+                  volPurge (não pendentes antes, mais antigos antes, sem PROCESSING)
 2026.nov  mlabru  DDL saiu para cls_common.dbase.schema; CVolDB só confere a
                   versão do esquema (não cria mais tabelas ao abrir)
 2026.nov  mlabru  movido para o repo cls.common (pacote cls_common): imports
@@ -278,6 +280,44 @@ class CVolDB:
                      li_hard_cutoff)
 
         self.cursor.execute(ls_sql, lt_params)
+
+        llst_candidates = []
+
+        for lrow in self.cursor.fetchall():
+            ldct_candidate = dict(lrow)
+            # SQLite devolve 0/1: converte para bool
+            ldct_candidate["pending"] = bool(lrow["pending"])
+            llst_candidates.append(ldct_candidate)
+
+        # ok
+        return llst_candidates
+
+    # ---------------------------------------------------------------------------------
+    def disk_candidates(self) -> list[dict]:
+        """
+        volumes cujo .mvol a guarda de disco do volPurge.py pode apagar, na
+        ordem em que deve apagar: primeiro os que já não estão pendentes,
+        depois os pendentes (último recurso); em cada grupo, do mais antigo
+        para o mais novo.  Ficam de fora:
+
+        - quem não tem mais o .mvol (has_mvol=0) e os sintéticos
+          (INTERPOLATED/PREDICTED);
+        - PROCESSING: o conversor está lendo o arquivo agora.
+
+        :returns: list[dict] (radar, alcance, timestamp, fullpath, status,
+                  pending), na ordem de remoção
+        """
+        ls_pending, lt_pending_params = self._pending_condition()
+
+        ls_sql = f"""SELECT v.radar, v.alcance, v.timestamp, v.fullpath, v.status,
+                            ({ls_pending}) AS pending
+                     FROM   volumes v
+                     WHERE  v.has_mvol = 1
+                     AND    v.status NOT IN (?, ?, ?)
+                     ORDER BY pending, v.timestamp"""
+
+        self.cursor.execute(ls_sql, (*lt_pending_params, CI_STATUS_INTERPOLATED,
+                                     CI_STATUS_PREDICTED, CI_STATUS_PROCESSING))
 
         llst_candidates = []
 

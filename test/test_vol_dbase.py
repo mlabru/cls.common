@@ -100,4 +100,26 @@ def test_has_pending_view(tmp_path):
     with vd.transaction(ls_db) as ldb:
         assert ldb.has_pending_view()
 
+# -------------------------------------------------------------------------------------
+def test_disk_candidates_ordem_e_exclusoes(tmp_path):
+    # não pendentes antes dos pendentes, mais antigos antes; sem PROCESSING,
+    # sem sintéticos, sem quem já não tem o .mvol
+    ls_db = str(tmp_path / "catalog.db")
+    ldct_status = {100: vd.CI_STATUS_NEW, 200: vd.CI_STATUS_DONE, 300: vd.CI_STATUS_FAILED,
+                   400: vd.CI_STATUS_PROCESSING, 500: vd.CI_STATUS_INTERPOLATED,
+                   600: vd.CI_STATUS_DONE, 50: vd.CI_STATUS_DONE}
+
+    for li_ts in ldct_status:
+        _insert(ls_db, li_ts)
+
+    with vd.transaction_write(ls_db) as ldb:
+        for li_ts, li_status in ldct_status.items():
+            ldb.cursor.execute("UPDATE volumes SET status = ? WHERE timestamp = ?", (li_status, li_ts))
+        ldb.mark_mvol_removed("CGU", 250, 50)
+
+    with vd.transaction(ls_db) as ldb:
+        llst = [(ld["timestamp"], ld["pending"]) for ld in ldb.disk_candidates()]
+
+    assert [(200, False), (300, False), (600, False), (100, True)] == llst
+
 # < the end >──────────────────────────────────────────────────────────────────────────
